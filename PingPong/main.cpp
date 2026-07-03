@@ -31,6 +31,18 @@ public:
 	{
 		window.draw(text);
 	}
+
+	int getScore()
+	{
+		return score;
+	}
+
+	void reset()
+	{
+		score = 0;
+		updateText();
+	}
+
 };
 
 //==============================================================================================================================================
@@ -43,6 +55,7 @@ private:
 	float speed;
 	int WIDTH, HEIGHT;
 	float paddleWidth, paddleHeight;
+	float posX, posY;
 	sf::Keyboard::Key upKey;
 	sf::Keyboard::Key downKey;
 public:
@@ -55,6 +68,8 @@ public:
 		this->paddleHeight = paddleHeight;
 		this->upKey = upKey;
 		this->downKey = downKey;
+		this->posX = posX;
+		this->posY = posY;
 		shape.setSize({ paddleWidth, paddleHeight });
 		shape.setPosition({ posX, posY });
 		shape.setFillColor(color);
@@ -75,6 +90,11 @@ public:
 	void draw(sf::RenderWindow& window)
 	{
 		window.draw(shape);
+	}
+
+	void reset()
+	{
+		shape.setPosition({ posX, posY });
 	}
 
 	sf::FloatRect getBounds() const
@@ -153,6 +173,15 @@ public:
 	}
 };
 
+//==============================================================================================================================================
+//GAME STATE
+//==============================================================================================================================================
+enum class GameState
+{
+	Home, 
+	Playing, 
+	GameOver
+};
 
 //==============================================================================================================================================
 //MAIN FUNCTION
@@ -163,6 +192,24 @@ int main()
 	sf::RenderWindow window(sf::VideoMode({ WIDTH, HEIGHT }), "Ping-Pong Game");
 	sf::Font font("LowresPixel-Regular.otf");
 	sf::Clock clock;
+
+	GameState state = GameState::Home;
+	int winningScore = 3;
+
+	sf::Text title(font);
+	title.setString("PING PONG");
+	title.setCharacterSize(80);
+	title.setPosition({ 380, 150 });
+
+	sf::Text start(font);
+	start.setString("Press ENTER to Start");
+	start.setCharacterSize(40);
+	start.setPosition({ 360, 350 });
+
+	sf::Text gameOver(font);
+	gameOver.setString("GAME OVER\nPress ENTER");
+	gameOver.setCharacterSize(50);
+	gameOver.setPosition({ 360, 250 });
 
 	Ball pingPong(300.f, 200.f, 20.f, sf::Color::Yellow, WIDTH, HEIGHT);
 
@@ -180,35 +227,72 @@ int main()
 			{
 				window.close();
 			}
+			if (const auto* key = event->getIf<sf::Event::KeyPressed>())
+			{
+				if (key->code == sf::Keyboard::Key::Enter)
+				{
+					if (state == GameState::Home)
+					{
+						state = GameState::Playing;
+					}
+					else if (state == GameState::GameOver)
+					{
+						state = GameState::Home;
+					}
+				}
+			}
 		}
 		float dt = clock.restart().asSeconds();
 		window.clear(sf::Color::Black);
 
-		pingPong.move(dt);
-		pingPong.draw(window);
-		pingPong.paddleCollision(leftPaddle);
-		pingPong.paddleCollision(rightPaddle);
-
-		if (pingPong.isOutLeft())
+		if (state == GameState::Home)
 		{
-			rightScore.increment();
-			pingPong.reset();
+			window.draw(title);
+			window.draw(start);
 		}
 
-		if (pingPong.isOutRight())
+		else if (state == GameState::Playing)
 		{
-			leftScore.increment();
-			pingPong.reset();
+			if (leftScore.getScore() == winningScore || rightScore.getScore() == winningScore)
+			{
+				state = GameState::GameOver;
+			}
+
+			pingPong.move(dt);
+			pingPong.draw(window);
+			pingPong.paddleCollision(leftPaddle);
+			pingPong.paddleCollision(rightPaddle);
+
+			if (pingPong.isOutLeft())
+			{
+				rightScore.increment();
+				pingPong.reset();
+			}
+
+			if (pingPong.isOutRight())
+			{
+				leftScore.increment();
+				pingPong.reset();
+			}
+
+			leftPaddle.move(dt);
+			rightPaddle.move(dt);
+
+			leftPaddle.draw(window);
+			rightPaddle.draw(window);
+
+			leftScore.draw(window);
+			rightScore.draw(window);
 		}
 
-		leftPaddle.move(dt);
-		rightPaddle.move(dt);
+		else {
+			leftScore.reset();
+			rightScore.reset();
+			leftPaddle.reset();
+			rightPaddle.reset();
+			window.draw(gameOver);
+		}
 
-		leftPaddle.draw(window);
-		rightPaddle.draw(window);
-
-		leftScore.draw(window);
-		rightScore.draw(window);
 
 		window.display();
 	}
